@@ -197,10 +197,6 @@ async fn main() -> std::io::Result<()> {
         )
         // favicon
         .service(favicon)
-        // 404.css
-        .service(c404)
-        // 404.js
-        .service(j404)
         // default
         .default_service(
             // 404 for GET request
@@ -211,7 +207,7 @@ async fn main() -> std::io::Result<()> {
                     web::route()
                         .guard(guard::Not(guard::Get()))
                         .to(HttpResponse::MethodNotAllowed),
-                ),
+                )
         )
               
     })
