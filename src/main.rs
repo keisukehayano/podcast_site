@@ -156,6 +156,18 @@ async fn favicon() -> Result<fs::NamedFile> {
     Ok(fs::NamedFile::open("static/favicon.ico")?)
 }
 
+/// 404.css handler
+#[get("/404.css")]
+async fn c404() -> Result<fs::NamedFile> {
+    Ok(fs::NamedFile::open("static/errors/404.css")?)
+}
+
+/// 404.js handler
+#[get("/404.js")]
+async fn j404() -> Result<fs::NamedFile> {
+    Ok(fs::NamedFile::open("static/errors/404.js")?)
+}
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -183,7 +195,12 @@ async fn main() -> std::io::Result<()> {
             web::scope("/login")
             .route("/login_form", web::get().to(login_form)),
         )
+        // favicon
         .service(favicon)
+        // 404.css
+        .service(c404)
+        // 404.js
+        .service(j404)
         // default
         .default_service(
             // 404 for GET request
