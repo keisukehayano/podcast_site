@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  # MySQL
+  db:
+    #image: mariadb:10.5.8 armアーキテクチャでは必要
+    image: mysql:8.0.23
+    image: mysql@sha256:43bf7db32d11e75d8463a8bc077f09af5fb5b84b182b1d74124ddca633093bfa
+    container_name: mysql_host
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: podcast_db
+      MYSQL_USER: ohs80340
+      MYSQL_PASSWORD: ohs80340
+      TZ: 'Asia/Tokyo'
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+    - ./docker/db/data:/var/lib/mysql
+    - ./docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
+    ports:
+    - 3306:3306
