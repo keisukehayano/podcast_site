@@ -2,3 +2,4 @@
 /db-docker/docker
 /nginx-docker/keys
 /tmp
+/pem_key
