@@ -8,31 +8,36 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
         integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
     <title>
-        Memo
+        administrator
     </title>
 </head>
 
 <body>
     <div class="container">
-        <h1>actix-web example</h1>
-        <h2>Memo form</h2>
-        <form class="form-horizontal" id="simpleForm" method="POST" action="/form/memo">
+        <h1>Administrator </h1>
+        <h2>Data Upload Form</h2>
+        <form class="form-horizontal" id="simpleForm" action="/regist/save_file" method="POST" enctype="multipart/form-data">
             <div class="form-group">
-                <label for="content">Content</label>
-                <input type="text" name="content" id="content" class="form-control">
+                <input type="file" id="content" class="form-control" multiple name="file"/>
             </div>
-            <button type="submit" class="btn btn-primary">Post</button>
+            <button type="submit" class="btn btn-primary">Post !!</button>
         </form>
-        <h2>Memo list</h2>
+
+        <h2>Data list</h2>
         <table class="table">
             <thead>
                 <tr>
-                    <th scope="col">id</th>
-                    <th scope="col">content</th>
+                    <th scope="col">FileName</th>
+                    <th scope="col">UploadDate</th>
                 </tr>
             </thead>
             <tbody>
-             
+                {% for item in items %}             
+                <tr>
+                    <td scope="col">{{item.name}}</td>
+                    <td scope="col">{{item.datecreate}}</td>
+                </tr>
+                {% endfor %}      
             </tbody>
         </table>
     </div>

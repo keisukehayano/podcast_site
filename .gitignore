@@ -1,2 +1,4 @@
 /target
-/docker
+/db-docker/docker
+/nginx-docker/keys
+/tmp
