@@ -384,7 +384,7 @@ async fn main() -> std::io::Result<()> {
 
     let templates = Tera::new("templates/**/*").unwrap();
 
-    let ip = "127.0.0.1:8080";
+    let ip = "0.0.0.0:8080";
 
     // https support!!
     // Key load!!
@@ -396,7 +396,7 @@ async fn main() -> std::io::Result<()> {
     println!(" │                                                  │");
     println!(" │   Serving!                                       │");
     println!(" │                                                  │");
-    println!(" │   - On Your Network:  {}             │", ip);
+    println!(" │   - On Your Network:  {}               │", ip);
     println!(" │                                                  │");
     println!(" │   Copied local address to clipboard!             │");
     println!(" │                                                  │");
