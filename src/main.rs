@@ -384,8 +384,12 @@ async fn main() -> std::io::Result<()> {
 
     let templates = Tera::new("templates/**/*").unwrap();
 
-    let ip = "0.0.0.0:8080";
+    // https port
+    let ip = "0.0.0.0:443";
 
+    // http port
+    //let ip = "0.0.0.0:80";
+    
     // https support!!
     // Key load!!
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
@@ -448,7 +452,7 @@ async fn main() -> std::io::Result<()> {
     // https support!!
     .bind_openssl(ip, builder)
     //.bind(ip)  // http mode
-    .expect("Can not bind to port 8080")
+    .expect("Can not bind to port 443")
     .run()
     .await
 }
