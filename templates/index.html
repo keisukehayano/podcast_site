@@ -14,25 +14,30 @@
 
 <body>
     <div class="container">
-        <h1>actix-web example</h1>
-        <h2>Memo form</h2>
-        <form class="form-horizontal" id="simpleForm" method="POST" action="/form/memo">
-            <div class="form-group">
-                <label for="content">Content</label>
-                <input type="text" name="content" id="content" class="form-control">
-            </div>
-            <button type="submit" class="btn btn-primary">Post</button>
-        </form>
-        <h2>Memo list</h2>
+        <h1>TEST </h1>
+        <h2>TEST</h2>
+        <h2>Data list</h2>
         <table class="table">
             <thead>
                 <tr>
-                    <th scope="col">id</th>
-                    <th scope="col">content</th>
+                    <th scope="col">FileName</th>
+                    <th scope="col">UploadDate</th>
                 </tr>
             </thead>
             <tbody>
-             
+                {% for item in items %} 
+                {% if item.listen_count == 1 %}
+                <form class="form-horizontal" id="" method="GET" action="/index_datails">
+                    <input type="hidden" name="item_id" id="item_id" value="{{item.item_id}}">           
+                <tr>
+                    <td scope="col">{{item.name}}</td>
+                    <td scope="col">{{item.datecreate}}</td>
+                    <!-- <td scope="col"> <audio controls src="{{item.file_pass}}"></audio> </td> -->
+                    <td scope="col"><button type="submit" class="btn btn-primary">button</button></td>
+                </tr>
+                </form> 
+                {% endif %}
+                {% endfor %}      
             </tbody>
         </table>
     </div>

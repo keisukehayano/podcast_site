@@ -16,12 +16,35 @@
     <div class="container">
         <h1>administrator</h1>
         <h2>Data Datails Information</h2>
-        <form class="form-horizontal" id="LoginForm" method="POST" action="/login/cont_index">
+        <form class="form-horizontal" id="DitailsForm" method="POST" action="/regist/items_update">
+            {% for datails in item_and_shownote %} 
             <div class="form-group">
-                <label for="content">NOTE</label>
-                <input type="text" name="" id="" class="form-control">
-                <label for="content">SHOW NOTE</label>
-                <input type="text" name="" id="" class="form-control">
+                <input type="hidden" name="item_id" id="item_id" value="{{datails.item_id}}"> 
+                <label for="content">FILE NAME</label>
+                <input type="text" name="name" id="name" value="{{datails.name}}" class="form-control">
+                <div class="form-group">
+                    <label for="content">NOTE</label>
+                    <textarea class="form-control" name="note" id="note" rows="5" maxlength="100" >{{datails.note}}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="content">SHOW NOTE</label>
+                    <textarea class="form-control" name="note_long" id="note_long" rows="8" maxlength="500" >{{datails.note_long}}</textarea>
+                </div>
+                <label for="content">PUBLIC OR PRIVATE</label>
+                <select name="listen_count"  id="listen_count">
+                    <!-- 初期値によって、選択されている項目を変更する。 -->
+                    {% if datails.listen_count == 0 %}
+                    <option value="0" selected="selected">PRIVATE</option>
+                    <option value="1">PUBLIC</option>
+                    {% elif datails.listen_count == 1 %}
+                    <option value="0">PRIVATE</option>
+                    <option value="1" selected="selected">PUBLIC</option>
+                    {% endif %}
+                </select>
+                <!-- 値が上書きされないので、コメントアウト -->
+                <!-- <input type="hidden" name="listen_count" id="listen_count"value="0" class="" /> -->
+                <!-- <input type="checkbox" name="listen_count" id="listen_count" value="1" class=""/> -->
+                {% endfor %}
             </div>
             <button type="submit" class="btn btn-primary">Post</button>
         </form>

@@ -1,6 +1,6 @@
 use actix_multipart::Multipart;
 //use actix_web::{ HttpRequest, get, post, guard, Result, error, middleware, web, App, Error, HttpResponse, HttpServer, Responder };
-use actix_web::{ get, post, guard, Result, error, middleware, web, App, Error, HttpResponse, HttpServer };
+use actix_web::{ get, post, guard, Result, error, middleware, web, App, Error, HttpResponse, HttpRequest, HttpServer};
 use async_std::prelude::*;
 use futures::{StreamExt, TryStreamExt};
 
@@ -21,6 +21,7 @@ use pwhash::bcrypt;
 //use uuid::Uuid;
 //use chrono::{Utc, Local, DateTime, Date};
 use chrono::{ Utc };
+use std::path::PathBuf;
 
 
 use openssl::ssl::{ SslAcceptor, SslFiletype, SslMethod };
@@ -40,10 +41,10 @@ type DB = diesel::mysql::Mysql;
 #[derive(Deserialize, Serialize, Debug,  Clone)]
 pub struct Item {
     item_id: i32,
-    name: String,
-    file_pass: String,
-    listen_count: i32,
-    datecreate: String,
+    name: Option<String>,
+    file_pass: Option<String>,
+    listen_count: Option<i32>,
+    datecreate: Option<String>,
 }
 
 // Item And ShowNote
@@ -51,11 +52,20 @@ pub struct Item {
 pub struct ItemAndShowNote {
     item_id: i32,
     name: String,
-    file_pass: String,
-    listen_count: i32,
-    datecreate: String,
+    file_pass: Option<String>,
+    listen_count: Option<i32>,
+    datecreate: Option<String>,
     note: Option<String>,
     note_long: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ItemAndShowNoteForUpdateForm {
+    item_id: i32,
+    name: String,
+    listen_count: i32,
+    note: String,
+    note_long: String,
 }
 
 
@@ -192,6 +202,29 @@ fn item_allget_data_access() -> std::vec::Vec<Item> {
     return items
 }
 
+// get Item By item_id
+fn item_get_by_id(item_id: &i32) -> std::vec::Vec<ItemAndShowNote> {
+    // DB Connection!!
+    let connection: MysqlConnection = db_connection();
+    let items: Vec<ItemAndShowNote> = sql_query("SELECT
+	                                                items.item_id AS item_id,
+	                                                items.name AS name,
+	                                                items.file_pass AS file_pass,
+	                                                items.listen_count AS listen_count,
+	                                                items.datecreate AS datecreate,
+	                                                show_notes.note AS note,
+	                                                show_notes.note_long AS note_long
+                                                FROM
+	                                                items
+                                                LEFT OUTER JOIN show_notes ON
+	                                                items.item_id = show_notes.item_id 
+	                                                WHERE items.item_id = ?",)
+    .bind::<Integer, _>(item_id)
+    .load(&connection).unwrap();
+
+    return items
+}
+
 // item Data Insrt
 fn item_data_access_insert(name: &String, file_path: &String, count: i32, date: &String) {
     let connection: MysqlConnection = db_connection();
@@ -203,6 +236,78 @@ fn item_data_access_insert(name: &String, file_path: &String, count: i32, date: 
         .execute(&connection);
 
         println!("{:?}",query);
+}
+
+
+fn show_notes_data_access_insert(item_id: &i32, note: &String, note_long: &String) {
+    // DB Connection!!
+    let connection: MysqlConnection = db_connection();
+    let query = sql_query("INSERT INTO
+	                            show_notes(
+                                item_id,
+	                            note,
+	                            note_long
+                           )VALUES(
+                                 ?,
+                                 ?,
+                                 ?)")
+    .bind::<Integer, _>(item_id)
+    .bind::<Text, _>(note)
+    .bind::<Text, _>(note_long)
+    .execute(&connection);
+                         
+    println!("{:?}",query);
+
+}
+
+// items UPDATE!!
+fn items_data_access_update_by_id(item_id: &i32, name: &String, public_flg: &i32) {
+    // DB connection!!
+    let connection: MysqlConnection = db_connection();
+    let query = sql_query("UPDATE 
+	                            items 
+                           SET
+	                            items.name = ?,
+                                items.listen_count = ?
+                           WHERE 
+	                            item_id = ?")
+    .bind::<Text, _>(name)
+    .bind::<Integer, _>(public_flg)
+    .bind::<Integer, _>(item_id)
+    .execute(&connection);
+
+    println!("{:?}", query);
+}
+
+// items Delete!!
+fn _items_data_accese_delete_by_id(item_id: &i32) {
+
+    // DB connection!!
+    let connection: MysqlConnection = db_connection();
+    let query = sql_query("DELETE
+                           FROM
+                                items
+                           WHERE
+                                item_id = ?")
+    .bind::<Integer, _>(item_id)
+    .execute(&connection);
+
+    println!("{:?}", query);
+}
+
+// show_notes Delete!!
+fn show_notes_data_access_delete_by_id(item_id: &i32) {
+    // DB connection!!
+    let connection: MysqlConnection = db_connection();
+    let query = sql_query("DELETE 
+                           FROM 
+                                show_notes
+                           WHERE
+                                item_id = ?")
+    .bind::<Integer, _>(item_id)
+    .execute(&connection);
+    
+    println!("{:?}", query);
 }
 
 
@@ -253,7 +358,7 @@ async fn cont_index(session: Session, tmpl: web::Data::<Tera>,  params: web::For
         println!("First Session Value: {:?}", sess_value);
     }
 
-    // items get
+    // items ALL get
     let items: Vec<Item> = item_allget_data_access();
 
     // Context
@@ -279,6 +384,7 @@ async fn password_hashing_api(params: web::Form<Form>) -> Result<HttpResponse, E
     Ok(HttpResponse::Ok().body(format!("hash PassWord: {:?}", &hash)))
 }
 
+
 // pasword matching testAPI
 // example: curl -XPOST -d 'login_id=keisuke&user_pass=ohs80340' http://127.0.0.1:8080/hash_test
 #[post("hash_test")]
@@ -299,10 +405,11 @@ fn password_hash_match(password_input: &String, password_db: &String) -> bool {
     bcrypt::verify(password_input, password_db)
 }
 
-// Data Upload and DB Regist
+// Data Upload and Psth DB Regist
 async fn save_file(mut payload: Multipart, tmpl: web::Data::<Tera>) -> Result<HttpResponse, Error> {
    let mut in_name = String::from("");
-   let mut in_filepath = String::from("");
+   let mut in_filepath_db = String::from("");
+   let mut db_flg = true;
     // iterate over multipart stream
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_type = field
@@ -311,30 +418,41 @@ async fn save_file(mut payload: Multipart, tmpl: web::Data::<Tera>) -> Result<Ht
         let filename = content_type
             .get_filename()
             .ok_or_else(|| actix_web::error::ParseError::Incomplete)?;
-        // split is extention
-        let v: Vec<&str> = filename.split('.').collect();
-        let name = v[0];
-        let extension = v[1];
-        in_name = name.to_string();
-        // get now time
-        let local_datetime = Utc::now().format("%Y%m%d%H%M%S").to_string();
-        // filename is fix
-        let filename_fix = format!("{}_{}.{}", name, local_datetime, extension);
-        // upload path
-        let filepath = format!("./tmp/{}", sanitize_filename::sanitize(&filename_fix));
-        in_filepath = filepath.to_string();
-        let mut f = async_std::fs::File::create(filepath).await?;
+        if "" != filename {
+            // split is extention
+            let v: Vec<&str> = filename.split('.').collect();
+            let name = v[0];
+            let extension = v[1];
+            in_name = name.to_string();
+            // get now time
+            let local_datetime = Utc::now().format("%Y%m%d%H%M%S").to_string();
+            // filename is fix
+            let filename_fix = format!("{}_{}.{}", name, local_datetime, extension);
+            // upload path
+            let filepath = format!("./tmp/{}", sanitize_filename::sanitize(&filename_fix));
+            // DB Regist FilePath
+            let filepath_db = format!("/tmp/{}", sanitize_filename::sanitize(&filename_fix));
+            in_filepath_db =  filepath_db.to_string();
 
-        // Field in turn is stream of *Bytes* object
-        while let Some(chunk) = field.next().await {
-            let data = chunk.unwrap();
-            f.write_all(&data).await?;
+            let mut f = async_std::fs::File::create(filepath).await?;
+
+            // Field in turn is stream of *Bytes* object
+            while let Some(chunk) = field.next().await {
+                let data = chunk.unwrap();
+                f.write_all(&data).await?;
+            }
+        } else {
+            db_flg = false;
         }
+
     }
-    // get a now
-    let in_date = Utc::now().format("%Y%m%d%H%M%S").to_string();
-    // DB Insert
-    item_data_access_insert(&in_name, &in_filepath, 0, &in_date);
+
+    if true == db_flg {
+        // get a now
+        let in_date = Utc::now().format("%Y%m%d%H%M%S").to_string();
+        // DB Insert
+        item_data_access_insert(&in_name, &in_filepath_db, 0, &in_date);
+    }
 
     // items get
     let items: Vec<Item> = item_allget_data_access();
@@ -349,24 +467,112 @@ async fn save_file(mut payload: Multipart, tmpl: web::Data::<Tera>) -> Result<Ht
     Ok(HttpResponse::Ok().content_type("text/html").body(view))
 }
 
-// cont_datails
-async fn cont_datails(tmpl: web::Data<Tera>) -> Result<HttpResponse, Error> {
-    let mut _ctx = Context::new();
+// cont_datails show
+async fn cont_datails(tmpl: web::Data<Tera>, query: web::Query<Item>) -> Result<HttpResponse, Error> {
+    
+    println!("item_id is {}", query.item_id);
 
+    // Item Info Get
+    let item_and_shownote: Vec<ItemAndShowNote> = item_get_by_id(&query.item_id);
+
+    // Context
+    let mut ctx = Context::new();
+    ctx.insert("item_and_shownote", &item_and_shownote);
+
+    println!("item info {:?}", item_and_shownote);
+
+    // Render Template
     let view = tmpl
-        .render("", &_ctx)
+        .render("cont_datails.html", &ctx)
         .map_err(|e| error::ErrorInternalServerError(e))?;
 
     Ok(HttpResponse::Ok().content_type("text/html").body(view))
-
 } 
 
+// index_dtails show
+#[get("/index_datails")]
+async fn index_datails(tmpl: web::Data<Tera>, query: web::Query<Item>) -> Result<HttpResponse, Error> {
+    
+    println!("item_id is {}", query.item_id);
+
+    // Item Info Get
+    let item_and_shownote: Vec<ItemAndShowNote> = item_get_by_id(&query.item_id);
+
+    // Context
+    let mut ctx = Context::new();
+    ctx.insert("item_and_shownote", &item_and_shownote);
+
+    println!("item info {:?}", item_and_shownote);
+
+    // Render Template
+    let view = tmpl
+        .render("index_datails.html", &ctx)
+        .map_err(|e| error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::Ok().content_type("text/html").body(view))
+} 
+
+// items and shownote Update!!
+async fn cont_datails_update(tmpl: web::Data<Tera>, params: web::Form<ItemAndShowNoteForUpdateForm>) -> Result<HttpResponse, Error> {
+
+    // items name Upload!!
+    items_data_access_update_by_id(&params.item_id, &params.name, &params.listen_count);
+
+    // shownote DeleteInsert!!
+    // shownote Delete
+    show_notes_data_access_delete_by_id(&params.item_id);
+    // shownote Insert
+    show_notes_data_access_insert(&params.item_id, &params.note, &params.note_long);
+   
+    // reload
+    let item_and_shownote: Vec<ItemAndShowNote> = item_get_by_id(&params.item_id);
+    println!("RELOAD RESULT!! {:?}", &item_and_shownote);
+
+    let mut ctx = Context::new();
+    ctx.insert("item_and_shownote", &item_and_shownote);
+    
+    let view = tmpl
+        .render("cont_datails.html", &ctx)
+        .map_err(|e| error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::Ok().content_type("text/html").body(view))   
+}
+
+// index.html
+#[get("/")]
+async fn index(tmpl: web::Data<Tera>) -> Result<HttpResponse, Error> {
+
+    // items ALL get
+    let items: Vec<Item> = item_allget_data_access();
+
+    let mut ctx = Context::new();
+    ctx.insert("items", &items);
+    
+    
+    let view = tmpl
+        .render("index.html", &ctx)
+        .map_err(|e| error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::Ok().content_type("text/html").body(view))   
+}
+
+// Audio File Get Api
+async fn audio_get(req: HttpRequest) -> Result<fs::NamedFile> {
+
+    let mut path_get = PathBuf::new();
+    let path: PathBuf = req.match_info().query("filename").parse().unwrap();
+
+    // Create File Path
+    path_get.push("./tmp/");
+    path_get.push(path);
+  
+    Ok(fs::NamedFile::open(path_get)?)
+}
 
 /// 404 handler
 async fn p404() -> Result<fs::NamedFile> {
     Ok(fs::NamedFile::open("static/errors/404.html")?.set_status_code(StatusCode::NOT_FOUND))
 }
-
 
 /// favicon handler
 #[get("/favicon")]
@@ -413,12 +619,13 @@ async fn main() -> std::io::Result<()> {
         // cookie session middleware
         .wrap(CookieSession::signed(&[0; 32]).secure(false))
         .service(
-            web::scope("/serach")
-                //.route("/serach.html", web::get().to(search)),
+            web::scope("/tmp")
+                .route("/{filename:.*}", web::get().to(audio_get)),
         )
         .service(
             web::scope("/regist")
-            .route("/save_file", web::post().to(save_file)),
+            .route("/save_file", web::post().to(save_file))
+            .route("/items_update", web::post().to(cont_datails_update)),
            
         )
         .service(
@@ -429,6 +636,9 @@ async fn main() -> std::io::Result<()> {
         )
         // favicon
         .service(favicon)
+        // index.html
+        .service(index)
+        .service(index_datails)
         // Generate to HashPassword API
         .service(password_hashing_api)
         .service(pass_mathing)

@@ -32,11 +32,15 @@
                 </tr>
             </thead>
             <tbody>
-                {% for item in items %}             
+                {% for item in items %} 
+                <form class="form-horizontal" id="" method="GET" action="/login/cont_datails">
+                    <input type="hidden" name="item_id" id="item_id" value="{{item.item_id}}">           
                 <tr>
                     <td scope="col">{{item.name}}</td>
                     <td scope="col">{{item.datecreate}}</td>
+                    <td scope="col"><button type="submit" class="btn btn-primary">button</button></td>
                 </tr>
+                </form> 
                 {% endfor %}      
             </tbody>
         </table>
