@@ -27,3 +27,4 @@ actix-session = "0.4"
 actix-utils = "2"
 pwhash = "1"
 openssl = { version = "0.10", features = ["v110"] }
+once_cell = "1.8.0"
