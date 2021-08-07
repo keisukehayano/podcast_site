@@ -201,7 +201,7 @@ fn item_allget_data_access() -> std::vec::Vec<Item> {
 
 // get Limit 30 Item Info
 fn item_and_shownote_limitget_data_access(page_number: i32) -> std::vec::Vec<ItemAndShowNote> {
-    
+
     let mut _st_get_number: i32 = 0i32;
 
     if page_number == 1 {
@@ -523,7 +523,7 @@ async fn save_file(mut payload: Multipart, tmpl: web::Data::<Tera>) -> Result<Ht
 
     if true == db_flg {
         // get a now
-        let in_date = Utc::now().format("%Y%m%d%H%M%S").to_string();
+        let in_date = Utc::now().format("%Y/%m/%d").to_string();
         // DB Insert
         item_data_access_insert(&in_name, &in_filepath_db, 0, &in_date);
     }
