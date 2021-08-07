@@ -201,14 +201,13 @@ fn item_allget_data_access() -> std::vec::Vec<Item> {
 
 // get Limit 30 Item Info
 fn item_and_shownote_limitget_data_access(page_number: i32) -> std::vec::Vec<ItemAndShowNote> {
+    
+    let mut _st_get_number: i32 = 0i32;
 
-    let mut st_get_number = (page_number - 1i32) * 30i32;
-
-    if st_get_number == 0 {
-        // 0 = 1
-        st_get_number = 1i32;
+    if page_number == 1 {
+        _st_get_number = 0i32;
     } else {
-        st_get_number += 1i32;
+        _st_get_number = (page_number - 1i32) * 30i32;
     }
 
     // DB Connection!!
@@ -226,7 +225,7 @@ fn item_and_shownote_limitget_data_access(page_number: i32) -> std::vec::Vec<Ite
                                                 LEFT OUTER JOIN show_notes ON
 	                                                items.item_id = show_notes.item_id 
 	                                            LIMIT ?, 30",)
-                                    .bind::<Integer,_>(st_get_number)
+                                    .bind::<Integer,_>(_st_get_number)
                                     .load(&connection)
                                     .unwrap();
 
@@ -787,7 +786,6 @@ async fn p404() -> Result<fs::NamedFile> {
 async fn favicon() -> Result<fs::NamedFile> {
     Ok(fs::NamedFile::open("static/favicon.ico")?)
 }
-
 
 // main Function 
 //Server routing
