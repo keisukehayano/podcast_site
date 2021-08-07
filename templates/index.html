@@ -22,6 +22,7 @@
                 <tr>
                     <th scope="col">FileName</th>
                     <th scope="col">UploadDate</th>
+                    <th scope="col">test</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,6 +41,33 @@
                 {% endfor %}      
             </tbody>
         </table>
+    </div>
+
+    <div class="container">
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+                {% if current_page == 1 %}
+              <li class="page-item disabled"><a class="page-link" href="#">Prev</a></li>
+                {% else %}
+              <li class="page-item"><a class="page-link" href="/login/page_user?page={{current_page - 1}}">Prev</a></li>
+                {% endif %}
+                
+                {% for page in page_nation %}
+                {% if page == current_page %}
+                <li class="page-item active"><span class="page-link">{{page}}<span class="sr-only">(current)</span></span></li>
+                {% else %}
+                <li class="page-item"><a class="page-link" href="/login/page_user?page={{page}}">{{page}}</a></li>
+                {% endif %}
+                {% endfor %} 
+
+                {% if current_page == page_count %}
+              <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                {% else %}
+              <li class="page-item"><a class="page-link" href="/login/page_user?page={{current_page + 1}}">Next</a></li>
+                {% endif %}
+
+            </ul>
+          </nav>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"

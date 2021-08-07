@@ -23,19 +23,38 @@ use pwhash::bcrypt;
 use chrono::{ Utc };
 use std::path::PathBuf;
 
-
 use openssl::ssl::{ SslAcceptor, SslFiletype, SslMethod };
 
 use tera::{ Tera, Context };
 
-
 extern crate tera;
+
+//use once_cell::sync::Lazy;
+//use once_cell::sync::OnceCell;
 
 mod mysql_connection;
 //mod errors;
 
-
 type DB = diesel::mysql::Mysql;
+
+
+// macro
+
+// Rounding
+macro_rules! _round {
+    ($x:expr, $scale:expr) => (($x * $scale).round() / $scale)
+}
+// Round up
+macro_rules! ceil {
+    ($x:expr, $scale:expr) => (($x * $scale).ceil() / $scale)
+}
+// Truncate
+macro_rules! _floor {
+    ($x:expr, $scale:expr) => (($x * $scale).floor() / $scale)
+}
+
+// macro
+
 
 // items Data
 #[derive(Deserialize, Serialize, Debug,  Clone)]
@@ -84,6 +103,11 @@ pub struct ShowNote {
     note_long: Option<String>,
 }
 
+// item count
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ItemCount {
+    item_count: i64,
+}
 
 // Form(UserInfo)
 impl QueryableByName<DB> for Form {
@@ -143,43 +167,15 @@ impl QueryableByName<DB> for ShowNote {
     }
 }
 
-
-// ##### user get test #####
-// curl -XGET http://127.0.0.1:8080/user_get
-#[get("user_get")]
-async fn user_get_api() -> Result<HttpResponse, Error> {
-    // DB Connection!!
-    let connection: MysqlConnection = db_connection();
-    let users: Vec<Form> = sql_query("SELECT login_id, user_pass FROM users",).load(&connection).unwrap();
-
-    println!("user info: {:?}", users);
-
-    Ok(HttpResponse::Ok().into())
-}
-
-// ##### item get test #####
-// curl -XGET http://127.0.0.1:8080/item_get
-// curl -XGET https://127.0.0.1:8080/item_get
-#[get("item_get")]
-async fn item_get_api() -> Result<HttpResponse, Error> {
-    let connection: MysqlConnection = db_connection();
-    let items: Vec<Item> = sql_query("SELECT item_id, name, file_pass, listen_count, datecreate FROM items ORDER BY datecreate DESC",).load(&connection).unwrap();
-
-    println!("{:?}", items);
-    Ok(HttpResponse::Ok().into())
-}
-
-
-// ### Item And ShowNote get ###
-// curl -XGET http://127.0.0.1:8080/all_get
-// curl -XGET https://127.0.0.1:8080/all_get
-#[get("all_get")]
-async fn test_allget() -> Result<HttpResponse, Error> {
-    let connection: MysqlConnection = db_connection();
-    let datails: Vec<ItemAndShowNote> = sql_query("SELECT items.item_id, items.name, items.file_pass, items.listen_count, items.datecreate, show_notes.note, show_notes.note_long FROM items LEFT OUTER JOIN show_notes ON items.item_id = show_notes.item_id",).load(&connection).unwrap();
-
-    println!("{:?}", datails);
-    Ok(HttpResponse::Ok().into())
+// item count impl
+impl QueryableByName<DB> for ItemCount {
+    fn build<R: diesel::row::NamedRow<diesel::mysql::Mysql>>(
+        row: &R,
+    ) -> diesel::deserialize::Result<Self> {
+        Ok(ItemCount {
+            item_count: row.get("item_count")?,
+        })
+    }
 }
 
 // get userdata from login_id
@@ -202,7 +198,61 @@ fn item_allget_data_access() -> std::vec::Vec<Item> {
     return items
 }
 
-// get Item By item_id
+
+// get Limit 30 Item Info
+fn item_and_shownote_limitget_data_access(page_number: i32) -> std::vec::Vec<ItemAndShowNote> {
+
+    let mut st_get_number = (page_number - 1i32) * 30i32;
+
+    if st_get_number == 0 {
+        // 0 = 1
+        st_get_number = 1i32;
+    } else {
+        st_get_number += 1i32;
+    }
+
+    // DB Connection!!
+    let connection: MysqlConnection = db_connection();
+    let items: Vec<ItemAndShowNote> = sql_query("SELECT
+	                                                items.item_id AS item_id,
+	                                                items.name AS name,
+	                                                items.file_pass AS file_pass,
+	                                                items.listen_count AS listen_count,
+	                                                items.datecreate AS datecreate,
+	                                                show_notes.note AS note,
+	                                                show_notes.note_long AS note_long
+                                                FROM
+	                                                items
+                                                LEFT OUTER JOIN show_notes ON
+	                                                items.item_id = show_notes.item_id 
+	                                            LIMIT ?, 30",)
+                                    .bind::<Integer,_>(st_get_number)
+                                    .load(&connection)
+                                    .unwrap();
+
+    return items;
+}
+
+// get item count
+fn item_all_count() -> i64 {
+    // DB Conection!!
+    let connection: MysqlConnection = db_connection();
+    let item_count_v: Vec<ItemCount> = sql_query("SELECT 
+	                                                COUNT(items.item_id) AS item_count
+                                                FROM
+	                                                items",)
+    .load(&connection).unwrap();
+
+    // get in Vec
+    let item_count_s = &item_count_v[0];
+    // get in Struct
+    let item_count: i64 = item_count_s.item_count;
+
+    return item_count   
+}
+
+
+// get ItemAndShowNote By item_id
 fn item_get_by_id(item_id: &i32) -> std::vec::Vec<ItemAndShowNote> {
     // DB Connection!!
     let connection: MysqlConnection = db_connection();
@@ -358,14 +408,39 @@ async fn cont_index(session: Session, tmpl: web::Data::<Tera>,  params: web::For
         println!("First Session Value: {:?}", sess_value);
     }
 
-    // items ALL get
-    let items: Vec<Item> = item_allget_data_access();
+    // items ALL get not use
+    //let items: Vec<Item> = item_allget_data_access();
 
+    let item_count_i64: i64 = item_all_count();
+    let item_count_f64 = item_count_i64 as f64;
+    let mut _page_count: f64 = 0.0;
+
+    if item_count_i64 <= 1 {
+        _page_count = 1f64;
+    } else {
+        _page_count = item_count_f64 / 30f64;
+    }
+
+    let page_count_roundup = ceil!(_page_count, 1f64);
+    let page_count_roundup_i64: i64 = page_count_roundup as i64;
+
+    // items Limit get
+    let items: Vec<ItemAndShowNote> = item_and_shownote_limitget_data_access(1);
+
+    let mut page_nation: Vec<i64> = vec![];
+    
+    for n in 0..page_count_roundup_i64 {
+        page_nation.push(n + 1);
+    }
+    
     // Context
     let mut ctx = Context::new();
     ctx.insert("items", &items);
+    ctx.insert("page_count", &page_count_roundup);
+    // login first page
+    ctx.insert("current_page", &1);
+    ctx.insert("page_nation", &page_nation);
     
-
     let view = tmpl
         .render("cont_index.html", &ctx)
         .map_err(|e| error::ErrorInternalServerError(e))?;
@@ -542,11 +617,34 @@ async fn cont_datails_update(tmpl: web::Data<Tera>, params: web::Form<ItemAndSho
 #[get("/")]
 async fn index(tmpl: web::Data<Tera>) -> Result<HttpResponse, Error> {
 
-    // items ALL get
-    let items: Vec<Item> = item_allget_data_access();
+    let item_count_i64: i64 = item_all_count();
+    let item_count_f64 = item_count_i64 as f64;
+    let mut _page_count: f64 = 0.0;
+
+    if item_count_i64 <= 1 {
+        _page_count = 1f64;
+    } else {
+        _page_count = item_count_f64 / 30f64;
+    }
+
+    let page_count_roundup = ceil!(_page_count, 1f64);
+    let page_count_roundup_i64: i64 = page_count_roundup as i64;
+
+    // items Limit get
+    let items: Vec<ItemAndShowNote> = item_and_shownote_limitget_data_access(1);
+
+    let mut page_nation: Vec<i64> = vec![];
+    
+    for n in 0..page_count_roundup_i64 {
+        page_nation.push(n + 1);
+    }
 
     let mut ctx = Context::new();
     ctx.insert("items", &items);
+    ctx.insert("page_count", &page_count_roundup);
+    // login first page
+    ctx.insert("current_page", &1);
+    ctx.insert("page_nation", &page_nation);
     
     
     let view = tmpl
@@ -568,6 +666,116 @@ async fn audio_get(req: HttpRequest) -> Result<fs::NamedFile> {
   
     Ok(fs::NamedFile::open(path_get)?)
 }
+
+
+// items Limit Get for cont_index
+async fn item_get_by_limit_for_cont(req: HttpRequest, tmpl: web::Data<Tera>) -> Result<HttpResponse, Error> {
+       
+    let mut query_page_num = String::new();
+    let query_str = req.query_string();
+    // split for query
+    let split_str: Vec<&str> = query_str.split("=").collect();
+    // query two over
+    if split_str.len() >= 2 {
+        query_page_num = split_str[1].to_string();
+    } else {
+        // noget ?
+    }
+    let query_page: i32 = query_page_num.parse().unwrap();
+
+    let item_count_i64: i64 = item_all_count();
+    let item_count_f64 = item_count_i64 as f64;
+    let mut _page_count: f64 = 0.0;
+
+    if item_count_i64 <= 1 {
+        _page_count = 1f64;
+    } else {
+        _page_count = item_count_f64 / 30f64;
+    }
+
+    let page_count_roundup = ceil!(_page_count, 1f64);
+    let page_count_roundup_i64: i64 = page_count_roundup as i64;
+
+    // items Limit get
+    let items: Vec<ItemAndShowNote> = item_and_shownote_limitget_data_access(query_page);
+
+    let mut page_nation: Vec<i64> = vec![];
+    
+    for n in 0..page_count_roundup_i64 {
+        page_nation.push(n + 1);
+    }
+
+   let mut ctx = Context::new();
+   ctx.insert("items", &items);
+    ctx.insert("page_count", &page_count_roundup);
+    // login first page
+    ctx.insert("current_page", &query_page);
+    ctx.insert("page_nation", &page_nation);
+
+   let view = tmpl
+        .render("cont_index.html", &ctx)
+        .map_err(|e| error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::Ok().content_type("text/html").body(view))
+}
+
+// items Limit Get for index
+async fn item_get_by_limit_for_user(req: HttpRequest, tmpl: web::Data<Tera>) -> Result<HttpResponse, Error> {
+       
+    let mut _query_page_num = String::new();
+    let query_str = req.query_string();
+    // split for query
+    let split_str: Vec<&str> = query_str.split("=").collect();
+
+    // query two over
+    if split_str.len() >= 2 {
+        if split_str[1] != "" {
+            _query_page_num = split_str[1].to_string();
+        } else {
+            return Ok(HttpResponse::NotFound().finish())
+        }
+    } else {
+        // noget ?
+        return Ok(HttpResponse::NotFound().finish())
+    }
+    let query_page: i32 = _query_page_num.parse().unwrap();
+
+    let item_count_i64: i64 = item_all_count();
+    let item_count_f64 = item_count_i64 as f64;
+    let mut _page_count: f64 = 0.0;
+
+    if item_count_i64 <= 1 {
+        _page_count = 1f64;
+    } else {
+        _page_count = item_count_f64 / 30f64;
+    }
+
+    let page_count_roundup = ceil!(_page_count, 1f64);
+    let page_count_roundup_i64: i64 = page_count_roundup as i64;
+
+    // items Limit get
+    let items: Vec<ItemAndShowNote> = item_and_shownote_limitget_data_access(query_page);
+
+    let mut page_nation: Vec<i64> = vec![];
+    
+    for n in 0..page_count_roundup_i64 {
+        page_nation.push(n + 1);
+    }
+
+   let mut ctx = Context::new();
+   ctx.insert("items", &items);
+    ctx.insert("page_count", &page_count_roundup);
+    // login first page
+    ctx.insert("current_page", &query_page);
+    ctx.insert("page_nation", &page_nation);
+
+   let view = tmpl
+        .render("index.html", &ctx)
+        .map_err(|e| error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::Ok().content_type("text/html").body(view))
+}
+
 
 /// 404 handler
 async fn p404() -> Result<fs::NamedFile> {
@@ -592,6 +800,7 @@ async fn main() -> std::io::Result<()> {
 
     // https port
     let ip = "0.0.0.0:443";
+
 
     // http port
     //let ip = "0.0.0.0:80";
@@ -633,18 +842,18 @@ async fn main() -> std::io::Result<()> {
             .route("/login_form", web::get().to(login_form))
             .route("/cont_index", web::post().to(cont_index))
             .route("/cont_datails", web::get().to(cont_datails))
+            .route("/page", web::get().to(item_get_by_limit_for_cont))
+            .route("/page_user", web::get().to(item_get_by_limit_for_user)),
         )
         // favicon
         .service(favicon)
         // index.html
         .service(index)
         .service(index_datails)
+        //.service(item_get_by_limit_for_back)
         // Generate to HashPassword API
         .service(password_hashing_api)
         .service(pass_mathing)
-        .service(user_get_api)
-        .service(item_get_api)
-        .service(test_allget)
         // default
         .default_service(
             // 404 for GET request
@@ -656,8 +865,7 @@ async fn main() -> std::io::Result<()> {
                         .guard(guard::Not(guard::Get()))
                         .to(HttpResponse::MethodNotAllowed),
                 )
-        )
-              
+        )           
     })
     // https support!!
     .bind_openssl(ip, builder)
