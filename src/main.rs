@@ -529,10 +529,36 @@ async fn save_file(mut payload: Multipart, tmpl: web::Data::<Tera>) -> Result<Ht
     }
 
     // items get
-    let items: Vec<Item> = item_allget_data_access();
+    //let items: Vec<Item> = item_allget_data_access();
+
+    let item_count_i64: i64 = item_all_count();
+    let item_count_f64 = item_count_i64 as f64;
+    let mut _page_count: f64 = 0.0;
+
+    if item_count_i64 <= 1 {
+        _page_count = 1f64;
+    } else {
+        _page_count = item_count_f64 / 30f64;
+    }
+
+    let page_count_roundup = ceil!(_page_count, 1f64);
+    let page_count_roundup_i64: i64 = page_count_roundup as i64;
+
+    // items Limit get
+    let items: Vec<ItemAndShowNote> = item_and_shownote_limitget_data_access(1);
+
+    let mut page_nation: Vec<i64> = vec![];
+    
+    for n in 0..page_count_roundup_i64 {
+        page_nation.push(n + 1);
+    }
 
     let mut ctx = Context::new();
     ctx.insert("items", &items);
+    ctx.insert("page_count", &page_count_roundup);
+    // login first page
+    ctx.insert("current_page", &1);
+    ctx.insert("page_nation", &page_nation);
 
     let view = tmpl
         .render("cont_index.html", &ctx)
