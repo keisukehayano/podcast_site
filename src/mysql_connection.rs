@@ -1,6 +1,5 @@
 use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;
-//use dotenv::dotenv;
 
 pub fn db_connection() -> MysqlConnection {
     let mysql_connection_result: MysqlConnection;
@@ -14,7 +13,6 @@ pub fn db_connection() -> MysqlConnection {
 
         for _n in 1..s_count {
             spece = spece + " ";
-            println!("test: {}", _n);
         }
 
     println!(" ┌──────────────────────────────────────────────────────────────────┐");
