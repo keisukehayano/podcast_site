@@ -5,6 +5,7 @@ use async_std::prelude::*;
 use futures::{StreamExt, TryStreamExt};
 
 use crate::mysql_connection::db_connection;
+use crate::mysql_connection::db_connection_check;
 use diesel::deserialize::QueryableByName;
 use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;
@@ -826,7 +827,7 @@ async fn main() -> std::io::Result<()> {
     let ip = "0.0.0.0:443";
 
     // DB Connection Check!! 
-    let _connection: MysqlConnection = db_connection();
+    db_connection_check();
 
     // http port
     //let ip = "0.0.0.0:80";
