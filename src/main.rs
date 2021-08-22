@@ -190,7 +190,7 @@ fn user_from_id_data_access_select(login_id: &String) -> std::vec::Vec<Form>  {
 }
 
 // get All Item Info
-fn item_allget_data_access() -> std::vec::Vec<Item> {
+fn _item_allget_data_access() -> std::vec::Vec<Item> {
     // DB Connection!!
     let connection: MysqlConnection = db_connection();
     let items: Vec<Item> = sql_query("SELECT item_id, name, file_pass, listen_count, datecreate FROM items ORDER BY datecreate DESC",).load(&connection).unwrap();
