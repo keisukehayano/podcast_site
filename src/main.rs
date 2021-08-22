@@ -825,6 +825,8 @@ async fn main() -> std::io::Result<()> {
     // https port
     let ip = "0.0.0.0:443";
 
+    // DB Connection Check!! 
+    let _connection: MysqlConnection = db_connection();
 
     // http port
     //let ip = "0.0.0.0:80";
